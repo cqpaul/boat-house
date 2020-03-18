@@ -14,6 +14,7 @@
             <ul class="menu-content">
               <li>
                 <router-link to="/FoodCategory">菜品分类管理</router-link>
+              </li>
               <li>
                 <router-link to="/Food">菜品管理</router-link>
               </li>

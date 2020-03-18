@@ -105,12 +105,14 @@ pipeline {
 
         stage('deploy-dev') { 
             steps {
+              sh "sed -i 's/#{BOATHOUSE_ORG_NAME}#/${BOATHOUSE_ORG_NAME}/g' docker-compose-template.yaml"
               script {
                 server = getHost()
                 echo "copy docker-compose file to remote server...."       
                 sshPut remote: server, from: 'docker-compose-template.yaml', into: '.'
                 sshCommand remote: server, command: "mkdir -p product-service/api/scripts"
                 sshPut remote: server, from: 'product-service/api/scripts/init.sql', into: './product-service/api/scripts/init.sql'
+
 
 
                 echo "stopping previous docker containers...."       
@@ -124,6 +126,43 @@ pipeline {
                 sshCommand remote: server, command: "docker-compose -f docker-compose-template.yaml -p boathouse up -d"
                 echo "successfully started!"
               }
+            }
+        }
+
+        
+        stage('Jmeter') {
+          steps {
+            script{
+                echo "waitting for the sevice up...."
+                sleep 80
+                sh "ls -al ./jmeter"
+                sh "cd jmeter && find . -name '*.log' -delete"
+                sh "rm -R ./jmeter/output || exit 0"
+                sh "mkdir ./jmeter/output"
+                sh "docker run --interactive --rm --volume `pwd`/jmeter:/jmeter egaillardon/jmeter --nongui --testfile boat-house.jmx --logfile output/result.jtl -Jdomain=${BOATHOUSE_DEV_HOST} -e -o ./output"
+                sh "ls -al ./jmeter"
+                publishHTML([allowMissing: false, alwaysLinkToLastBuild: false, keepAll: true, reportDir: './jmeter/output', reportFiles: 'index.html', reportName: 'Jmeter Report', reportTitles: ''])
+            }
+          }
+        }
+
+        stage('build-uitest'){
+            steps {
+                sh "docker build -f selenium/dotnet-uitest/Dockerfile -t ${BOATHOUSE_CONTAINER_REGISTRY}/uitest:${env.BRANCH_NAME}-${env.BUILD_ID} -t ${BOATHOUSE_CONTAINER_REGISTRY}/uitest:latest selenium/dotnet-uitest"
+            }
+        }
+
+        stage('run-uitest'){
+            steps {
+                script {
+                    // 本地执行测试
+                    sh "mkdir -p ./selenium/dotnet-uitest/uitest/report"
+                    sh "docker-compose -f ./selenium/dotnet-uitest/docker-compose-hub.yml -p uitest-hub down"
+                    sh "docker-compose -f ./selenium/dotnet-uitest/docker-compose-hub.yml -p uitest-hub pull"
+                    sh "docker-compose -f ./selenium/dotnet-uitest/docker-compose-hub.yml -p uitest-hub up -d"
+                    sh "docker run -v \$(pwd)/selenium/dotnet-uitest/uitest/report:/app/TestResults ${BOATHOUSE_CONTAINER_REGISTRY}/uitest:latest"
+                    mstest testResultsFile:"selenium/**/*.trx", keepLongStdio: true
+                  }
             }
         }
 
@@ -153,12 +192,10 @@ pipeline {
         }
     }
 
-   post {
-     always {
-       sh "sudo rm -rf product-service/api/target"
-     }
-   }
-    
-
-
+    post {
+      always {
+        sh "sudo rm -rf product-service/api/target"
+      }
+    }
   }
+

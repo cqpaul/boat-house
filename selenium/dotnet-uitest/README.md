@@ -1,7 +1,14 @@
-# 开发中
+# UI 自动化测试
 
-> docker-compose up -d --scale chrome=2 --scale firefox=2
+本项目采用 Selenium Grid + Docker + Xunit + Jenkins Pipeline 进行 UI 自动化测试
 
-本项目下的Jenkinsfile是为了本地测试流水线时使用，当本地测试成功后，需要修改部分路径，然后将流水线命令复制到主项目的Jenkinsfile中
+执行以下命令，可以在本地启动 selenium grid 环境。本地启动 sg 后，可以运行单元测试代码，测试代码会将浏览器命令发送给 sg,从而执行测试。
+
+> 启动环境:docker-compose -f docker-compose-hub.yml up -d
+> 停止环境:docker-compose -f docker-compose-hub.yml down
+
+项目中 chrome 浏览器镜像可以采用 debug 版镜像，采用 debug 版镜像后，可以在运行测试时，使用 VNC Client 远程连接到容器中的浏览器，从而看到浏览器执行命令的过程，这在调试代码时非常有用。
+
+> 调试浏览器时，可以使用 VNC Client 连接到容器内部 5900 端口，连接密码为 secret，[Chrome-Debug 版 Dockerfile](https://github.com/SeleniumHQ/docker-selenium/blob/master/NodeChromeDebug/Dockerfile)
 
 [参考文档](https://github.com/idcf-boat-house/boat-house-devops/blob/master/docs/Selenium%E8%87%AA%E5%8A%A8%E5%8C%96UI%E6%B5%8B%E8%AF%95.md)
